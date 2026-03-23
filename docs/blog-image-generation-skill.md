@@ -67,6 +67,7 @@ Example mapping for a post about community resilience:
 - **Mood:** Warmth, community, luminous energy, wonder
 - **Resolution:** 1024×1024 (SDXL native size)
 - **Restrictions:** No text in images, no Disney/IP references, no photorealism
+- **No letters or text anywhere** — SDXL renders any text as garbled gibberish. If the scene calls for signage, menus, noticeboards, or labels, use "blank", "empty", or "unreadable" as modifiers. Add the explicit phrase `no letters or text anywhere` to any prompt involving signs, gates, boards, or written elements.
 
 **Prompt structure:**
 Each prompt should paint a specific visual scene:
@@ -237,6 +238,7 @@ warm luminous atmosphere suggesting hope and renewal
 **❌ Don't:**
 - Use generic or stock-photo-like prompts ("realistic photograph of...")
 - Include text, brand logos, or Disney characters
+- Use prompts with words like "sign", "label", "menu", "banner", or "banner text" without also adding `no letters or text anywhere` — SDXL will render garbled characters
 - Ignore the color palette in pursuit of photorealism
 - Run `nohup bash script.sh` (causes Python 3.14 fatal errors)
 - Place images randomly; map them to narrative moments first
