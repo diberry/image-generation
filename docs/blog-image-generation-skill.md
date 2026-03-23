@@ -68,6 +68,10 @@ Example mapping for a post about community resilience:
 - **Resolution:** 1024×1024 (SDXL native size)
 - **Restrictions:** No text in images, no Disney/IP references, no photorealism
 - **No letters or text anywhere** — SDXL renders any text as garbled gibberish. If the scene calls for signage, menus, noticeboards, or labels, use "blank", "empty", or "unreadable" as modifiers. Add the explicit phrase `no letters or text anywhere` to any prompt involving signs, gates, boards, or written elements.
+- **Figures and representation** — Avoid describing skin tone directly. Use one of these approaches instead:
+  - **Single figures:** Default to `silhouetted figure`, `figure seen from behind`, or `small figure in the distance` so no individual features are rendered. The folk art style abstraction supports this naturally.
+  - **Groups:** Use `diverse group of figures` or `varied silhouettes` — SDXL interprets loosely but tends to vary its output.
+  - The painterly/folk-art aesthetic already stylizes human forms; leaning into that abstraction sidesteps the issue entirely without targeting anyone.
 
 **Prompt structure:**
 Each prompt should paint a specific visual scene:
