@@ -19,7 +19,22 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-### 2026-03-23 — Memory Audit of generate.py
+### 2026-03-25 — PR #3 Code Review: try/finally + test coverage validation
+
+Neo wrote 13 regression tests covering exception paths and version floors:
+- 12 tests for try/finally cleanup validation in generate()
+- 1 test for accelerate version floor prerequisites
+- All pass without GPU via mocking
+- Critical test: `test_generate_refine_path_cleans_up_on_refiner_exception` validates exception safety architecture
+
+**Key learnings for Phase 2 (full 22-test suite):**
+- Mock-based testing scales well: no GPU, fast execution (~few seconds)
+- Exception path testing is testable via patching at function entry points
+- Version floor changes need validation tests to prevent silent regressions
+
+**Trinity's PR #4 approved by Morpheus.** Both HIGH-severity fixes structurally correct. Ready for Phase 2 expansion (22 full regression tests). Phase 3 will tackle MEDIUM issues.
+
+### 2026-03-23 — Memory Audit of generate.py (post PR#1, PR#2)
 
 **Finding: Zero test coverage exists.** There is no `tests/` directory and no project-owned test files. The "Plan: Test Coverage for Memory Fixes" in decisions.md is documented but not implemented.
 

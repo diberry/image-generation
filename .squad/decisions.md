@@ -79,6 +79,24 @@
 
 **Governance:** Per TDD directive, all fixes require test-first approach on PR branch with team sign-off.
 
+---
+
+### PR #4: High-Memory Fixes (try/finally + accelerate floor) — MERGED
+
+**Date:** 2026-03-25
+**Implementer:** Trinity
+**Reviewer:** Morpheus
+**Verdict:** ✅ MERGED
+
+**Fixes (2 HIGH-severity):**
+1. **try/finally exception safety** — Wraps inference body in exception-safe cleanup. Initializes all pipeline vars to None before try. Inline `del base; base = None` in refiner path preserved for load-order management. Finally block deletes all variables, calls `gc.collect()`, and cache clears (`torch.cuda.empty_cache()` unconditional, `torch.mps.empty_cache()` guarded by `is_available()`). `image` intentionally excluded from finally for post-finally `image.save()` call.
+
+2. **Version floor tightening** — `accelerate>=0.24.0` (critical, fixes silent CPU offload hook deregistration regression), `diffusers>=0.21.0`, `torch>=2.1.0`. No conflicts. Prevents breaking of PR#1 cleanup on old versions.
+
+**Test coverage:** 13 regression tests passing (neo-pr3-tests), all exception paths covered.
+
+**Open issues (MEDIUM — Phase 3):** torch.compile dynamo cache reset, entry-point VRAM flush, latents CPU transfer, PIL cleanup (LOW).
+
 ## Governance
 
 - All meaningful changes require team consensus

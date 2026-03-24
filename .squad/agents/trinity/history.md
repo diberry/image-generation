@@ -15,8 +15,6 @@
 - `outputs/` — generated PNGs at 1024×1024, ~1.5-1.7MB each
 - `.squad/` — team memory, decisions, agent histories
 
-## Learnings
-
 ### 2026-03-25 — PR #3: try/finally cleanup guard + accelerate version floor
 
 - **try/finally pattern for pipeline cleanup:** Initialize `base = refiner = latents = text_encoder_2 = vae = image = None` before the try block. The inline `del base; base = None` in the refiner path must stay inside try (not moved to finally) because it frees VRAM before `load_refiner()` — ordering is load-order-dependent. The finally block catches everything else: any variable still non-None gets deleted, then gc.collect() and both CUDA/MPS cache clears run unconditionally.

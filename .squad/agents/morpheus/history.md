@@ -19,6 +19,27 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-25 — PR #4 Code Review: try/finally + accelerate version floor
+
+Reviewed `squad/pr3-high-memory-fixes` (Trinity's work). Both HIGH-severity issues are correctly fixed.
+
+**try/finally analysis:**
+- All five pipeline variables (`base`, `refiner`, `latents`, `text_encoder_2`, `vae`) initialized to `None` before `try`. `finally` deletes all five unconditionally — safe even when `base=None` mid-refine.
+- The inline `del base; base = None` inside the refiner path is intentional load-order management (frees VRAM before `load_refiner()`), NOT duplicate cleanup. Setting `base = None` makes the `finally` deletion a safe no-op. Pattern is correct.
+- `image` is intentionally excluded from `finally` cleanup — needed for the post-finally `image.save()` call. PIL image leak (LOW) is a known open issue, out of scope here.
+- `torch.cuda.empty_cache()` called unconditionally in `finally` — correct, it's a no-op without CUDA. `torch.mps.empty_cache()` guarded by `is_available()` — also correct.
+- Exception propagates correctly: if an exception fires inside `try`, `finally` cleans up, then exception propagates up. `image.save()` is unreachable in the exception path.
+- Happy path unchanged: try completes, finally cleans pipelines, image is still live for save.
+
+**requirements.txt analysis:**
+- `accelerate>=0.24.0` — the critical fix. Versions below 0.24.0 silently skip CPU offload hook deregistration on `del pipe`, making PR#1's entire cleanup strategy inert.
+- `diffusers>=0.21.0`, `torch>=2.1.0` — appropriate tightening.
+- `transformers>=4.30.0` — not changed, within scope. No known equivalent hook regression.
+
+**Remaining open (out of scope for this PR):** torch.compile dynamo cache reset (MEDIUM), entry-point VRAM flush (MEDIUM), latents tensor CPU transfer before refiner load (MEDIUM), PIL image cleanup (LOW).
+
+**Decision:** APPROVED.
+
 ### 2026-03-23 — Memory Audit of generate.py (post PR #1 + PR #2)
 
 Performed architectural memory review. Five issues found that survived both merged PRs:
@@ -56,3 +77,24 @@ Morpheus's architectural audit converged with Trinity's code-level review and Ne
 - Critical gating test: exception safety cleanup (fails until try/finally is added)
 
 **Team consensus:** Full-audit summary merged into `.squad/decisions.md`. Morpheus is architecting Phase 3 (code fixes) to follow Neo's test infrastructure (Phase 2) and Trinity's version-floor tightening (Phase 1).
+
+### 2026-03-25 — PR #4 Code Review: try/finally + accelerate version floor
+
+Reviewed `squad/pr3-high-memory-fixes` (Trinity's work). Both HIGH-severity issues are correctly fixed.
+
+**try/finally analysis:**
+- All five pipeline variables (`base`, `refiner`, `latents`, `text_encoder_2`, `vae`) initialized to `None` before `try`. `finally` deletes all five unconditionally — safe even when `base=None` mid-refine.
+- The inline `del base; base = None` inside the refiner path is intentional load-order management (frees VRAM before `load_refiner()`), NOT duplicate cleanup. Setting `base = None` makes the `finally` deletion a safe no-op. Pattern is correct.
+- `image` is intentionally excluded from `finally` cleanup — needed for the post-finally `image.save()` call. PIL image leak (LOW) is a known open issue, out of scope here.
+- `torch.cuda.empty_cache()` called unconditionally in `finally` — correct, it's a no-op without CUDA. `torch.mps.empty_cache()` guarded by `is_available()` — also correct.
+- Exception propagates correctly: if an exception fires inside `try`, `finally` cleans up, then exception propagates up. `image.save()` is unreachable in the exception path.
+- Happy path unchanged: try completes, finally cleans pipelines, image is still live for save.
+
+**requirements.txt analysis:**
+- `accelerate>=0.24.0` — the critical fix. Versions below 0.24.0 silently skip CPU offload hook deregistration on `del pipe`, making PR#1's entire cleanup strategy inert.
+- `diffusers>=0.21.0`, `torch>=2.1.0` — appropriate tightening.
+- `transformers>=4.30.0` — not changed, within scope. No known equivalent hook regression.
+
+**Remaining open (out of scope for this PR):** torch.compile dynamo cache reset (MEDIUM), entry-point VRAM flush (MEDIUM), latents tensor CPU transfer before refiner load (MEDIUM), PIL image cleanup (LOW).
+
+**Decision:** APPROVED.
