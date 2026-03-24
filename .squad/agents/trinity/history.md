@@ -30,6 +30,19 @@
 - **torch._dynamo.reset() belongs in the finally block, CUDA-guarded:** `torch.compile` is only applied on CUDA (in `load_base()`), so the dynamo reset is correctly scoped to `device == "cuda"`. The `hasattr(torch, "_dynamo")` guard protects against torch versions without the attribute. If `torch.compile` is ever extended to MPS or other devices, the guard must be broadened.
 - **Entry-point flush pattern mirrors the finally pattern:** `gc.collect()` first, then CUDA unconditional, then MPS guarded. Consistent with the existing `finally` cleanup so it's easy to audit both at once.
 - **Global state audit finding:** `generate.py` has zero module-level pipeline objects or accumulating global state. All pipeline vars are locals inside `generate()`. This is the right architecture for a CLI tool called in batch — no risk of cross-call contamination from Python-level references.
+### 2026-03-25 — PR #5: MEDIUM Memory Fixes Delivered & Approved
+
+Delivered all 4 MEDIUM-severity fixes in `squad/pr5-medium-memory-fixes`. Approved by Morpheus (Lead).
+
+**Fixes implemented:**
+1. **Latents CPU Transfer:** `latents.cpu()` before `del base` and cache flush. Device transfer back via `latents.to(device)` (MPS-aware). Guard: `if device in ("cuda", "mps")`.
+2. **Dynamo Cache Reset:** `torch._dynamo.reset()` in finally block, guarded by `device == "cuda" and hasattr(torch, "_dynamo")`.
+3. **Entry-Point VRAM Flush:** Added `gc.collect()`, `torch.cuda.empty_cache()` (CUDA-guarded), `torch.mps.empty_cache()` (MPS-guarded) at start of `generate()`.
+4. **Global State Audit:** Verified all pipeline variables are locals. Zero process-persistent references. Clean.
+
+**Tests:** Neo added 9 new MEDIUM tests. All 22 tests pass (~5.9s, no GPU). Call-order tracking validates fixes 1, 2, 3 at the code level.
+
+**Review verdict:** APPROVED. All fixes correct. Code logic sound. Follow-up (not blocking): Neo to fix orphaned assert message patterns in 3 tests.
 
 ### 2026-03-23 — Memory Audit of generate.py (post PR#1, PR#2)
 

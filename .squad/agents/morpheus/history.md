@@ -19,6 +19,40 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-25 — PR #5 Code Review & Approval: Four MEDIUM Memory Fixes
+
+Reviewed and APPROVED `squad/pr5-medium-memory-fixes` (Trinity code, Neo tests). All four MEDIUM-severity issues correctly addressed.
+
+**Fix reviews:**
+1. **Latents CPU Transfer:** Order verified. `latents.cpu()` before `del base`. Device transfer uses `latents.to(device)` (MPS-aware). Guard correct.
+2. **Dynamo Cache Reset:** In finally block. Both guards present: `device == "cuda"` and `hasattr(torch, "_dynamo")`. Comment flags MPS extension risk.
+3. **Entry-Point VRAM Flush:** All 3 calls present, correct order, start of generate(). Two-flush pattern (entry + finally) intentional.
+4. **Global State Audit:** Manual scan confirms. All pipeline vars are locals. Zero process-persistent refs. Clean architecture.
+
+**Test review:** All 22 tests pass. 9 new MEDIUM tests use call-order tracking. Would catch regressions on active fixes 1, 2, 3. Fix 4 verified clean by inspection.
+
+**Non-blocking finding:** 3 tests have orphaned assert message patterns. Neo follow-up for clarity, not a correctness issue.
+
+**Decision:** APPROVED. All fixes correct. Code logic sound. Ready to merge.
+
+### 2026-03-25 — PR #5 Code Review: Four MEDIUM Memory Fixes
+
+Reviewed `squad/pr5-medium-memory-fixes` (Trinity's code, Neo's tests). All four MEDIUM-severity issues correctly handled.
+
+**Fix 1 (latents CPU transfer):** `latents.cpu()` is placed before `del base` and before the mid-refine cache flush. Order confirmed in diff. Device transfer back uses `latents.to(device)` inline — not hardcoded `"cuda"`, MPS-safe. CPU path is correctly excluded via `if device in ("cuda", "mps")` guard. The `latents` variable holds the CPU copy until finally cleans it — benign.
+
+**Fix 2 (dynamo reset):** `torch._dynamo.reset()` is inside `finally`. Dual guard: `device == "cuda"` (matches where `torch.compile` is actually used in `load_base()`, lines 72–75) AND `hasattr(torch, "_dynamo")` (protects against old torch versions). Both guards necessary and present.
+
+**Fix 3 (entry-point flush):** All three calls present in correct order. Placed at the very start of `generate()` before `load_base()`. Two-flush pattern (entry + finally) is deliberate and correct.
+
+**Fix 4 (global state audit):** Verified clean. All pipeline vars are locals in `generate()`. No module-level mutable pipeline state. Clean CLI architecture.
+
+**Tests:** All 22 pass. 9 new MEDIUM tests use call-order tracking via `side_effect + call_log`. Would catch regressions on all three active fixes.
+
+**One code smell found:** Three tests use `mock.assert_called(), "message"` — the comma makes the message an orphaned expression (not a pytest `assert`). Tests still catch regressions but custom messages don't surface on failure. Flagged for Neo follow-up, not blocking.
+
+**Decision:** APPROVED.
+
 ### 2026-03-25 — PR #4 Code Review: try/finally + accelerate version floor
 
 Reviewed `squad/pr3-high-memory-fixes` (Trinity's work). Both HIGH-severity issues are correctly fixed.

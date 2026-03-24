@@ -19,6 +19,22 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-25 — PR #5: MEDIUM Regression Tests Delivered & Approved
+
+Added 9 new MEDIUM regression tests to `tests/test_memory_cleanup.py` for `squad/pr5-medium-memory-fixes`. All 22 tests pass (~5.9s, no GPU).
+
+**Test coverage:**
+- **Entry-Point VRAM Flush (3 tests):** Verify gc.collect, cuda.empty_cache, mps.empty_cache fire before load_base. Uses call-order tracking.
+- **Latents Tensor Handling (3 tests):** Verify latents.cpu() precedes cache flush, transferred back for refiner, cleaned up in finally.
+- **Dynamo Cache Reset (2 tests):** Verify torch._dynamo.reset() called on CUDA after cleanup, NOT called on CPU.
+- **Global State (1 test):** Verify entry flush fires on second generate() call too (no compound memory).
+
+**Implementation approach:** Mock-based testing with call_log + side_effect patterns. All regressions caught at code level without GPU.
+
+**Code findings (non-blocking):** Three tests use `mock.assert_called(), "message"` pattern — orphaned messages don't surface on failure. Will fix as follow-up.
+
+**Review verdict:** APPROVED by Morpheus. Tests validate all active code fixes.
+
 ### 2026-03-25 — PR #3 Code Review: try/finally + test coverage validation
 
 Neo wrote 13 regression tests covering exception paths and version floors:
