@@ -200,3 +200,106 @@ The string after the comma is a valid Python expression but is silently orphaned
 **APPROVED.** All four MEDIUM-severity issues are correctly addressed. Code logic is sound. The 9 new tests use call-order tracking and would catch regressions on Fixes 1, 2, and 3. Fix 4 is verified clean by inspection.
 
 **Follow-up (not blocking):** Neo to fix the orphaned message pattern in 3 tests and add call-ordering assertion to `test_latents_transferred_back_for_refiner`.
+
+---
+
+## TDD Sprint: Batch CLI + OOM Retry (PRs #10, #11)
+
+### PR #10: OOM Auto-Retry with Step Reduction
+
+**Date:** 2026-03-24
+**Author:** Trinity (Backend Developer)
+**Branch:** `squad/oom-retry`
+**Verdict:** ✅ **APPROVED — Merged to main**
+
+**Feature Implemented:** `generate_with_retry(args, max_retries: int = 2) -> str`
+
+- **Behavior:** Wraps `generate(args)` with OOM retry logic
+- **On OOMError:** Halves `args.steps` (floor at 1), prints warning, retries
+- **Retries:** Up to `max_retries` times (so `max_retries + 1` total calls)
+- **Exhaustion:** Re-raises `OOMError` with final steps count in message
+- **Non-OOM exceptions:** Propagate immediately, no retry
+
+**Test Results:** 12/12 tests pass
+- All critical paths covered (step halving, max_retries exhaustion)
+- Edge cases: steps=1 floor, all retry types
+
+**Integration with main():** Single-prompt path now calls `generate_with_retry()` instead of `generate()`. Batch mode preserves existing `batch_generate()` path.
+
+**Reviewer Note (Morpheus):** Future work should update `batch_generate()` to utilize `generate_with_retry()` logic for robust batch OOM handling. Currently batch fails immediately on OOM for a single item. Acceptable for this scope but inconsistent architecturally. Deferred as architectural improvement.
+
+### PR #11: --batch-file CLI Flag
+
+**Date:** 2026-03-24
+**Author:** Trinity (Backend Developer)
+**Branch:** `squad/batch-cli`
+**Verdict:** ✅ **APPROVED — Merged to main**
+
+**Features Implemented:**
+1. `--batch-file <path>` argument (mutually exclusive with `--prompt`)
+2. Extracted `main()` function from `if __name__ == "__main__":` block
+3. main() handles both paths: --batch-file → read JSON → call batch_generate(), or --prompt → call generate()
+
+**Test Results:** 10/10 tests pass
+- All contract tests from neo-batch-cli-tdd-red.md satisfied
+- Full regression suite: 63/63 pass (zero regressions)
+
+**Error Handling:**
+- Missing file → `sys.exit(1)` with stderr message
+- Malformed JSON → `sys.exit(1)` with stderr message
+- Partial batch failure → continues (per-item try/except in batch_generate())
+
+**CI Constraint:** `.github/workflows/tests.yml` uses `workflow_dispatch` only (no auto-triggers on push/PR)
+
+**generate_blog_images.sh Refactor (included in PR #11):**
+- Replaced 5 sequential `python generate.py` calls with single `--batch-file` invocation
+- PID-namespaced temp JSON file (no /tmp usage, local directory)
+- `set -euo pipefail` for safety
+- Per-item seeds preserved (42–46)
+
+### TDD Cycle Summary
+
+**Neo's Red Phase Tests (2026-03-24):**
+- tests/test_batch_cli.py: 10 tests documenting --batch-file contract
+- tests/test_oom_retry.py: 12 tests documenting generate_with_retry() contract
+- Both files syntactically valid, collected by pytest, all failing (by design)
+
+**Trinity's Green Phase Implementation:**
+- PR #10: generate_with_retry() implementation
+- PR #11: --batch-file CLI + main() refactor + shell update
+- All tests transitioned from red to green via implementation
+
+**Code Reviews:**
+- **Morpheus review PR #10:** APPROVED. Correctness verified. Safety validated. Testing comprehensive.
+- **Neo review PR #11:** APPROVED. All 10 contract tests pass. Zero regressions. CI constraint verified.
+
+### Architectural Notes
+
+- **TDD Discipline:** Red phase tests documented requirements precisely. Trinity implementation satisfied all tests in green phase. Code reviews verified behavior matches spec.
+- **Exception Safety:** 
+  - Single-prompt path: `generate_with_retry()` catches OOMError, retries, delegates cleanup to `generate()`'s finally block
+  - Batch path: Per-item exceptions caught, converted to error dicts, batch never raises
+  - Both paths respect device handling and --cpu flag
+- **Memory Management:** batch_generate() flushes GPU memory between items (gc.collect + device cache clears), following generate()'s established patterns
+
+### Merged to main
+
+Both PRs merged to main with all tests passing:
+- PR #10: squad/oom-retry → generate_with_retry() implementation
+- PR #11: squad/batch-cli → --batch-file CLI + shell update
+
+Tests written and merged:
+- tests/test_batch_cli.py (10 tests, all passing on main)
+- tests/test_oom_retry.py (12 tests, all passing on main)
+
+**Final test status on main:**
+- test_batch_cli.py: 10/10 ✅
+- test_oom_retry.py: 12/12 ✅
+- test_batch_generation.py: 17/17 ✅
+- test_oom_handling.py: 14/14 ✅
+- test_memory_cleanup.py: 22/22 ✅
+- **Total: 75/75 ✅ ALL PASSING**
+
+### Future Work Note
+
+Morpheus flagged that `batch_generate()` should eventually use `generate_with_retry()` for consistent OOM handling across both single-prompt and batch modes. Currently batch fails immediately on OOM for one item while single-prompt mode retries. This is acceptable for initial release but represents an architectural inconsistency. Deferred as future enhancement, not blocking current merge.

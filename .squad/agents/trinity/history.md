@@ -122,6 +122,45 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 **Sprint status:** ✅ COMPLETE — All 53 tests on main, TDD cycle complete, CI workflow live, README accurate, batch generation and OOM handling production-ready.
 
+### 2026-03-24 — TDD Green Phase Complete: PRs #10 & #11 Merged
+
+**Assignments completed:**
+
+1. **PR #10: generate_with_retry() Implementation (squad/oom-retry)**
+   - Implemented `generate_with_retry(args, max_retries=2)` with step halving and retry logic
+   - 12/12 tests pass (all of Neo's test_oom_retry.py contracts satisfied)
+   - Behavior: Halves args.steps on OOMError, retries up to max_retries, re-raises on exhaustion
+   - Integrated with main(): single-prompt path now calls generate_with_retry()
+   - Verdict: ✅ APPROVED by Morpheus (code review)
+
+2. **PR #11: --batch-file CLI Implementation (squad/batch-cli)**
+   - Added `--batch-file <path>` argument (mutually exclusive with --prompt)
+   - Extracted `main()` function for testability
+   - Reads JSON array of prompt dicts, calls batch_generate(), prints results
+   - 10/10 tests pass (all of Neo's test_batch_cli.py contracts satisfied)
+   - Full suite: 63/63 pass (zero regressions)
+   - Verdict: ✅ APPROVED by Neo (code review)
+
+3. **generate_blog_images.sh Refactor (included in PR #11)**
+   - Replaced 5 sequential python calls with single --batch-file invocation
+   - Single process instance reduces model load/teardown overhead
+   - PID-namespaced temp file (no /tmp, local directory)
+   - Per-item seeds preserved
+
+**Final Test Status on main:**
+- test_batch_cli.py: 10/10 ✅
+- test_oom_retry.py: 12/12 ✅
+- test_batch_generation.py: 17/17 ✅
+- test_oom_handling.py: 14/14 ✅
+- test_memory_cleanup.py: 22/22 ✅
+- **Total: 75/75 ✅ ALL PASSING**
+
+**Key learnings:**
+- TDD green phase: implement features to pass pre-written red-phase tests
+- exception + finally coexistence: both in one try block for "transform exception but guarantee cleanup" pattern
+- Batch memory management: inter-item GPU flushing via gc.collect() + device cache clears
+- Device handling: respect --cpu flag and propagate device parameter consistently
+
 
 
 - **`workflow_dispatch` only is the correct CI trigger when minutes are scarce:** No `push` or `pull_request` triggers. The workflow only runs when manually invoked from the Actions tab. This is a deliberate cost-control decision, not a limitation.

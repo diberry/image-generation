@@ -313,3 +313,28 @@ Reviewed Trinity's implementation of OOMError and batch_generate() against 10-po
 **Decision:** ✅ APPROVE — Merge to main. All tests pass, all acceptance criteria met, no bugs found, code is maintainable and production-ready.
 
 ---
+
+### 2026-03-24 — Code Review PR #10: OOM Auto-Retry (generate_with_retry)
+
+**Assignment:** Code review of Trinity's PR #10 (squad/oom-retry)
+
+**Feature Reviewed:** generate_with_retry(args, max_retries=2) implementation for OOMError handling with step reduction
+
+**Review Findings:**
+1. **Correctness:** Correctly implements step halving (floor at 1), retries on OOMError, prints warnings, re-raises with context on exhaustion. Verified by 12 passing tests.
+2. **Regressions:** main() logic updated correctly to dispatch to generate_with_retry for single-prompt mode while preserving batch mode path. Argument parsing ensures mutual exclusivity.
+3. **Safety:** Retry loop respects existing finally cleanup in generate().
+4. **Testing:** 12 tests cover all critical paths including edge cases (steps=1 floor, max_retries exhaustion).
+5. **CI:** No new workflows added.
+
+**Architectural Recommendation (Deferred):** Future work should update batch_generate() to utilize generate_with_retry() logic for consistent OOM handling across both single-prompt and batch modes. Currently batch fails immediately on OOM for a single item while single-prompt mode retries. Acceptable for this PR's scope but represents architectural inconsistency. Noted in decisions.md as future enhancement.
+
+**Verdict:** ✅ APPROVED — Ready to merge to main
+
+**PR Status:** ✅ MERGED to main
+
+**Test Impact:**
+- 12/12 test_oom_retry.py tests pass (all of Neo's red-phase contracts satisfied)
+- Zero regressions in full test suite
+
+---
