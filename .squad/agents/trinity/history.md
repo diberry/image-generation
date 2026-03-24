@@ -15,8 +15,6 @@
 - `outputs/` — generated PNGs at 1024×1024, ~1.5-1.7MB each
 - `.squad/` — team memory, decisions, agent histories
 
-## Learnings
-
 ### 2026-03-25 — PR #3: try/finally cleanup guard + accelerate version floor
 
 - **try/finally pattern for pipeline cleanup:** Initialize `base = refiner = latents = text_encoder_2 = vae = image = None` before the try block. The inline `del base; base = None` in the refiner path must stay inside try (not moved to finally) because it frees VRAM before `load_refiner()` — ordering is load-order-dependent. The finally block catches everything else: any variable still non-None gets deleted, then gc.collect() and both CUDA/MPS cache clears run unconditionally.
@@ -25,6 +23,13 @@
 - **Version floors are prerequisites, not optional hygiene:** `accelerate<0.24.0` silently breaks the CPU offload deregistration path. This isn't a "might cause issues" risk — it means PR#1's entire cleanup strategy is inert on older accelerate. Always audit version floors as part of any memory management PR.
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-03-25 — PR #5: MEDIUM memory fixes (latents CPU transfer, dynamo reset, entry-point flush, global state audit)
+
+- **latents.cpu() before cache flush is the correct fix for the GPU-pin problem:** Moving the latents tensor to CPU before `del base` / `empty_cache()` lets the cache flush reclaim all base model VRAM. Moving back with `latents.to(device)` at refiner call site is clean and explicit. Guard on `device in ("cuda", "mps")` — no-op on CPU path.
+- **torch._dynamo.reset() belongs in the finally block, CUDA-guarded:** `torch.compile` is only applied on CUDA (in `load_base()`), so the dynamo reset is correctly scoped to `device == "cuda"`. The `hasattr(torch, "_dynamo")` guard protects against torch versions without the attribute. If `torch.compile` is ever extended to MPS or other devices, the guard must be broadened.
+- **Entry-point flush pattern mirrors the finally pattern:** `gc.collect()` first, then CUDA unconditional, then MPS guarded. Consistent with the existing `finally` cleanup so it's easy to audit both at once.
+- **Global state audit finding:** `generate.py` has zero module-level pipeline objects or accumulating global state. All pipeline vars are locals inside `generate()`. This is the right architecture for a CLI tool called in batch — no risk of cross-call contamination from Python-level references.
 
 ### 2026-03-23 — Memory Audit of generate.py (post PR#1, PR#2)
 
