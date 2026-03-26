@@ -276,3 +276,60 @@ Fixed Neo's rejection of PR #8 by updating the pytest command and Testing sectio
 | **Total** | **22** | **31** |
 
 **Next:** Trinity implements batch_generate() and OOMError to pass PR #9.
+
+### 2026-03-25 — Issue #2 / PR #9: Fix hardcoded macOS path in shell scripts
+
+- **Only one shell script exists:** `generate_blog_images.sh`. The `regen_*.sh` scripts referenced in history were from a prior iteration and are no longer in the repo.
+- **SCRIPT_DIR pattern is the portable standard:** `SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)` followed by `cd "$SCRIPT_DIR"` makes all relative paths (like `venv/bin/activate`, `outputs/`, `generate.py`) resolve correctly regardless of where the script is invoked from or which machine it runs on.
+- **Always audit all `*.sh` files when fixing path issues:** Even if only one script is reported, check every shell script in the repo to prevent the same bug from lurking elsewhere.
+
+---
+
+## Full Team Code Review (2026-03-26)
+
+**Event:** Comprehensive 5-agent code review of image-generation project  
+**Scope:** Architecture, backend, pipeline quality, prompts, testing  
+**Outcome:** 10 issues identified (3 HIGH, 4 MEDIUM, 3 LOW)
+
+**Trinity Role & Findings (Backend Dev):**
+- **Key Responsibility Areas:** generate.py, shell scripts, CLI design, dependency management
+- **HIGH Issues Found:** 
+  1. args.steps mutation in generate_with_retry() — corrupts caller state
+  2. Hardcoded absolute path in generate_blog_images.sh — portability blocker
+- **MEDIUM Issues Found:**
+  1. batch_generate() ignores CLI overrides (--steps, --guidance, --width, --height, --refine)
+  2. Cache flush guard inconsistency (CUDA vs MPS pattern)
+  3. No --negative-prompt CLI support (architectural gap, blocks quality improvements)
+- **LOW Issues Found:**
+  1. README test count stale (22 → 53+)
+  2. CLI argument validation missing (steps=0, width=7, guidance=-1 accepted)
+
+**Issues Requiring Trinity Implementation:**
+1. **HIGH Phase 2:** Fix args.steps mutation → use SimpleNamespace copy in retry loop
+2. **MEDIUM Phase 2:** Implement batch_generate() parameter forwarding (TDD-first, Neo writes tests)
+3. **MEDIUM Phase 2:** Extract flush_device_cache() helper (DRY refactor)
+4. **LOW Phase 2:** Add CLI argument validators (argparse type parameter)
+5. **MEDIUM Phase 3:** Implement --negative-prompt CLI flag + batch JSON support
+
+**Cross-Team Coordination Notes:**
+- Trinity/Neo: Batch parameter forwarding requires TDD test-first approach
+- Trinity/Switch: Negative prompt CLI must coordinate with style guide updates
+- Trinity/Niobe: Negative prompt wiring unblocks scheduler/guidance tuning work
+- All Phase 2 changes must follow TDD-first discipline
+
+**Code Review Observations:**
+- Memory management: Well-engineered try/finally + OOM + batch cleanup patterns
+- Error handling: OOMError detection solid, message actionable
+- Test integration: 53+ tests all passing, good regression coverage
+- Overall quality: High maintainability, clear structure
+
+**Recommendations Summary:**
+- Phase 1: Fix paths, update docs (quick wins)
+- Phase 2: Fix mutations/forwarding/validation (all TDD-first, critical for reliability)
+- Phase 3: Negative prompts + templates + tuning (architectural features)
+
+**Team Consensus:**
+- args.steps mutation is HIGH priority, fix immediately in Phase 2
+- Batch parameter forwarding: implement TDD-first (Neo tests → Trinity code)
+- All Phase 2 work must maintain zero-regression test status
+- Ready to begin Phase 1 quick wins immediately
