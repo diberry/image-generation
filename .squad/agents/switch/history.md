@@ -62,3 +62,27 @@
 - `morbid` included specifically because our prompts use words like "ancient," "faded," "translucent forms" that can drift dark
 
 **Dependency:** `generate.py` does not yet accept `--negative-prompt`. This documentation is ready for Trinity to reference when implementing the CLI flag.
+
+### Style Guide Expansion & Prompt Template System (issue #7, 2026-03-26)
+
+**What was done:** Expanded `prompts/examples.md` from a 4-line style guide into a comprehensive prompt engineering reference (+272 lines). Branch: `squad/7-style-guide-templates`.
+
+**Key deliverables:**
+
+1. **Full style guide** — Defined the tropical magical-realism aesthetic with precision: color palette (6 colors with hex values and usage rules), mood/lighting rules (warm diegetic light, no cold blue), composition guidelines (dense, layered, 1024×1024), and the canonical style anchor requirement.
+
+2. **SDXL-specific guidance** — Tables documenting what SDXL responds well to (specific color+noun pairs, named art movements, emotional tone words) and what fails (negating colors/objects, vague style words, guidance > 7.5, SD 1.5 negative terms). Do's and Don'ts checklist for quick reference.
+
+3. **Prompt template system** — 5-component structure: `{scene_description}, {palette_hints}, {style_anchor}, {mood_and_lighting}, {constraints}`. Includes step-by-step writing guide, minimal and full template examples, and a validation checklist.
+
+4. **Prompt consistency fixes:**
+   - Restored `magical realism illustration` anchor to all 5 vacation prompts (had drifted to just "folk art illustration" or "Folk art illustration")
+   - Added `no text` constraint to all 5 vacation prompts (was missing entirely)
+   - Fixed Prompt 04's `aesthetic` → `style` for anchor consistency
+   - All 10 prompts now use the canonical anchor: `Latin American folk art style, magical realism illustration`
+
+5. **Guidance scale fix** — Changed "best quality" from 8.0 → 7.5 and "quick draft" from 7.5 → 7.0, per Niobe's pipeline review finding that SDXL's sweet spot is 7.0–7.5. Added explanatory note.
+
+**Prompt audit result:** After changes, all 10 prompts (5 original + 5 vacation) have: canonical style anchor ✓, "no text" ✓, palette colors ✓, light source described ✓.
+
+**Note:** Vacation prompts now have different text than what was used to generate the existing images. Regeneration with the corrected prompts will produce different outputs (different seeds may be needed to achieve comparable quality).
