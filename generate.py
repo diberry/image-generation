@@ -229,28 +229,31 @@ def generate(args) -> str:
     return output_path
 
 
-def batch_generate(prompts: list[dict], device: str = "mps") -> list[dict]:
+def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[dict]:
     """
     Generate images for a list of prompt dicts, flushing GPU memory between items.
 
     Each input dict: {"prompt": str, "output": str, "seed": int (optional)}
     Returns list of {"prompt": str, "output": str, "status": "ok"|"error", "error": str|None}
+
+    When args is provided, CLI params (steps, guidance, width, height, refine)
+    are forwarded from it instead of using defaults.
     """
     results = []
     for i, item in enumerate(prompts):
-        args = SimpleNamespace(
+        batch_args = SimpleNamespace(
             prompt=item["prompt"],
             output=item["output"],
             seed=item.get("seed"),
-            steps=40,
-            guidance=7.5,
-            width=1024,
-            height=1024,
-            refine=False,
+            steps=args.steps if args else 40,
+            guidance=args.guidance if args else 7.5,
+            width=args.width if args else 1024,
+            height=args.height if args else 1024,
+            refine=args.refine if args else False,
             cpu=(device == "cpu"),
         )
         try:
-            output_path = generate(args)
+            output_path = generate_with_retry(batch_args)
             results.append({
                 "prompt": item["prompt"],
                 "output": output_path,
@@ -278,21 +281,25 @@ def batch_generate(prompts: list[dict], device: str = "mps") -> list[dict]:
 def generate_with_retry(args, max_retries: int = 2) -> str:
     """
     Wraps generate(args) with OOM retry logic.
-    - On OOMError: halves args.steps (floor at 1), prints warning, retries
+    - On OOMError: halves steps (floor at 1), prints warning, retries
     - Retries up to max_retries times (so up to max_retries+1 total calls)
     - If all retries exhausted: raises OOMError with message mentioning final steps count
     - Non-OOM exceptions: re-raised immediately, no retry
+    - Does NOT mutate args.steps — uses a local copy for each attempt.
     """
+    current_steps = args.steps
     for attempt in range(max_retries + 1):
         try:
-            return generate(args)
+            retry_args = SimpleNamespace(**vars(args))
+            retry_args.steps = current_steps
+            return generate(retry_args)
         except OOMError:
             if attempt == max_retries:
                 raise OOMError(
-                    f"Out of GPU memory after {max_retries} retries. Last attempt used {args.steps} steps."
+                    f"Out of GPU memory after {max_retries} retries. Last attempt used {current_steps} steps."
                 )
-            args.steps = max(1, args.steps // 2)
-            print(f"OOM: retrying with {args.steps} steps")
+            current_steps = max(1, current_steps // 2)
+            print(f"OOM: retrying with {current_steps} steps")
 
 
 def main():
@@ -308,7 +315,7 @@ def main():
             print(f"Error: invalid JSON in batch file: {e}", file=sys.stderr)
             sys.exit(1)
         device = "cpu" if args.cpu else get_device(False)
-        results = batch_generate(prompts, device=device)
+        results = batch_generate(prompts, device=device, args=args)
         for r in results:
             status = r['status']
             print(f"[{status}] {r['prompt'][:50]} → {r.get('output', r.get('error', ''))}")
