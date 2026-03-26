@@ -41,3 +41,24 @@
 - Factor style system into composable template
 - Add "no text" to all prompts or make it a default constraint
 - Standardize style anchors across all prompts
+
+### Negative Prompt Strategy Documentation (issue #3, 2026-03-26)
+
+**What was done:** Added a comprehensive `## Negative Prompts` section to `prompts/examples.md` as part of issue #3 (negative prompt support). Also updated the Style Guide with a cross-reference to the new section.
+
+**Section contents:**
+1. **Default negative prompt** (11 terms): `blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid`
+2. **Term-by-term rationale table** — explains what each term prevents and why it matters for our tropical folk art aesthetic
+3. **Customization guidelines** — when to add scene-specific negatives (people, architecture, fine patterns, photorealistic drift, dark mood) vs. using the default as-is
+4. **SDXL-specific tips** — what works (quality pairs, style negation, double-blocking text) and what backfires (over-long prompts, negating colors, negating specific objects, contradicting positive tokens, SD 1.5 terms)
+5. **Usage example** — shows the recommended `--negative-prompt` CLI invocation for when Trinity wires up the flag
+
+**Key design choices:**
+- Kept the default at 11 terms — SDXL's sweet spot before token blending kicks in
+- `bad quality` + `worst quality` as a pair is more effective than either alone on SDXL (different training captions)
+- `text` in negative + "no text" in positive = double-blocking, the most reliable text suppression for SDXL
+- Explicitly warned against negating colors and specific objects — common SDXL pitfalls
+- Warned against copying SD 1.5 negative prompts (different text encoder)
+- `morbid` included specifically because our prompts use words like "ancient," "faded," "translucent forms" that can drift dark
+
+**Dependency:** `generate.py` does not yet accept `--negative-prompt`. This documentation is ready for Trinity to reference when implementing the CLI flag.
